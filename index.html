@@ -223,6 +223,24 @@ body{
 .btn-ghost{ background: rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.3); }
 .btn-ghost:hover{ background: rgba(255,255,255,.2); }
 
+/* ---------- Type-choice modal ---------- */
+.type-overlay{
+  display:none;
+  position: fixed; inset:0;
+  background: rgba(15,23,32,.55);
+  z-index: 110;
+  align-items:center; justify-content:center;
+}
+.type-overlay.open{ display:flex; }
+.type-modal{
+  background:#fff; border-radius:14px; padding:26px 24px;
+  width:min(360px, 90vw); box-shadow: var(--shadow); text-align:center;
+}
+.type-modal h3{ margin:0 0 16px; font-size:1.02rem; color: var(--navy); }
+.type-modal .btn{ width:100%; justify-content:center; margin-bottom:10px; }
+.type-modal .btn-ghost{ background:#f1eee6; color:#4a4238; border:1px solid var(--line); }
+.type-modal .btn-ghost:hover{ background:#e6e1d3; }
+
 .cert-page{
   background: var(--paper);
   width: 210mm;
@@ -332,6 +350,16 @@ body{
   <footer class="app-footer">تُعرض البيانات وتُعالَج بالكامل داخل المتصفح ولا تُرفع لأي خادم خارجي.</footer>
 </div>
 
+<!-- ============== TYPE CHOICE MODAL ============== -->
+<div class="type-overlay no-print" id="typeOverlay">
+  <div class="type-modal">
+    <h3>اختر نوع الإفادة</h3>
+    <button class="btn btn-primary type-btn" data-type="grad">إفادة تخرج</button>
+    <button class="btn btn-primary type-btn" data-type="training">إفادة سنة التدريب الإجباري</button>
+    <button class="btn btn-ghost" id="cancelTypeBtn">إلغاء</button>
+  </div>
+</div>
+
 <!-- ============== CERTIFICATE (print target) ============== -->
 <div class="cert-overlay no-print" id="certOverlay">
   <div class="cert-toolbar no-print">
@@ -355,7 +383,7 @@ body{
 
       <div class="cert-title">إفادة</div>
 
-      <div class="cert-body">
+      <div class="cert-body" id="bodyGrad">
         <p>تفيد كلية تكنولوجيا العلوم الصحية التطبيقية بأن الطالب/ة: <span class="field" id="fName">.......................................</span></p>
         <p>قد اجتاز/ت بنجاح امتحانات المستوى الرابع (مرحلة البكالوريوس) <span id="fTrack">بنظام الساعات المعتمدة – البرنامج الخاص</span>، بقسم/ <span class="field" id="fDept">.......................................</span> وفقًا للسجلات الرسمية بالكلية.</p>
         <p>وحيث إن منح درجة البكالوريوس يخضع لاستكمال الإجراءات والاعتماد وصدور قرار المنح من السلطة المختصة، فإن الطالب/ة ينتظر صدور قرار منح الدرجة العلمية.</p>
@@ -363,9 +391,17 @@ body{
         <p class="cert-date">بني سويف في: <span id="fDate"></span></p>
       </div>
 
+      <div class="cert-body" id="bodyTraining" style="display:none">
+        <p>تفيد كلية تكنولوجيا العلوم الصحية التطبيقية جامعة بني سويف أن الخريج/ة: <span class="field" id="fNameT">.......................................</span></p>
+        <p>درس/ت لدينا بالكلية برنامج <span class="field" id="fDeptT">.......................................</span> بنظام الساعات المعتمدة.</p>
+        <p>علمًا بأن الكلية طبقًا للائحة الحالية لا يوجد بها سنة تدريب إجباري.</p>
+        <p>قُدّمت هذه الإفادة بناءً على الطلب المقدم دون أدنى مسئولية على الكلية بما ورد وحقوق الغير.</p>
+        <p class="cert-date">بني سويف في: <span id="fDateT"></span></p>
+      </div>
+
       <p class="cert-closing">وتفضلوا بقبول فائق الاحترام،،،</p>
 
-      <div class="cert-sign">
+      <div class="cert-sign" id="signGrad">
         <div class="sign-col">
           <div class="sign-role">المختص</div>
           <div class="sign-name blank"></div>
@@ -381,6 +417,17 @@ body{
         <div class="sign-col">
           <div class="sign-role">عميد الكلية</div>
           <div class="sign-name">أ.د/ الحسين دهشان</div>
+        </div>
+      </div>
+
+      <div class="cert-sign" id="signTraining" style="display:none">
+        <div class="sign-col">
+          <div class="sign-role">شئون الخريجين</div>
+          <div class="sign-name blank"></div>
+        </div>
+        <div class="sign-col">
+          <div class="sign-role">وكيل الكلية لشئون التعليم والطلاب</div>
+          <div class="sign-name">أ.د/ بكار عبد الحليم</div>
         </div>
       </div>
 
@@ -412,6 +459,16 @@ body{
   var fDept = document.getElementById('fDept');
   var fTrack = document.getElementById('fTrack');
   var fDate = document.getElementById('fDate');
+  var bodyGrad = document.getElementById('bodyGrad');
+  var bodyTraining = document.getElementById('bodyTraining');
+  var signGrad = document.getElementById('signGrad');
+  var signTraining = document.getElementById('signTraining');
+  var fNameT = document.getElementById('fNameT');
+  var fDeptT = document.getElementById('fDeptT');
+  var fDateT = document.getElementById('fDateT');
+  var typeOverlay = document.getElementById('typeOverlay');
+  var cancelTypeBtn = document.getElementById('cancelTypeBtn');
+  var pendingStudent = null;
 
   /* ---------------- helpers ---------------- */
   function normalizeArabic(s){
@@ -689,7 +746,7 @@ body{
       li.appendChild(main);
       li.appendChild(idWrap);
 
-      li.addEventListener('click', function(){ openCertificate(s); });
+      li.addEventListener('click', function(){ showTypeChooser(s); });
       resultsList.appendChild(li);
     });
 
@@ -707,17 +764,44 @@ body{
     return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
   }
 
-  function openCertificate(s){
-    fName.textContent = s.name;
-    fDept.textContent = s.dept;
-    fName.classList.remove('empty');
-    fDept.classList.remove('empty');
-    fTrack.textContent = s.track === 'خاص'
-      ? 'بنظام الساعات المعتمدة – البرنامج الخاص'
-      : 'بنظام الساعات المعتمدة – نظام الانتظام';
-    fDate.textContent = formatDateAr(new Date());
+  function showTypeChooser(s){
+    pendingStudent = s;
+    typeOverlay.classList.add('open');
+  }
+
+  function hideTypeChooser(){
+    typeOverlay.classList.remove('open');
+    pendingStudent = null;
+  }
+
+  function openCertificate(s, type){
+    type = type || 'grad';
+    var isTraining = type === 'training';
+
+    bodyGrad.style.display = isTraining ? 'none' : '';
+    bodyTraining.style.display = isTraining ? '' : 'none';
+    signGrad.style.display = isTraining ? 'none' : '';
+    signTraining.style.display = isTraining ? '' : 'none';
+
+    if(isTraining){
+      fNameT.textContent = s.name;
+      fDeptT.textContent = s.dept;
+      fNameT.classList.remove('empty');
+      fDeptT.classList.remove('empty');
+      fDateT.textContent = formatDateAr(new Date());
+    } else {
+      fName.textContent = s.name;
+      fDept.textContent = s.dept;
+      fName.classList.remove('empty');
+      fDept.classList.remove('empty');
+      fTrack.textContent = s.track === 'خاص'
+        ? 'بنظام الساعات المعتمدة – البرنامج الخاص'
+        : 'بنظام الساعات المعتمدة – نظام الانتظام';
+      fDate.textContent = formatDateAr(new Date());
+    }
+
     certOverlay.classList.add('open');
-    document.title = 'إفادة - ' + s.name;
+    document.title = (isTraining ? 'إفادة تدريب - ' : 'إفادة - ') + s.name;
   }
 
   function closeCertificate(){
@@ -745,6 +829,16 @@ body{
   });
 
   searchInput.addEventListener('input', runSearch);
+  document.querySelectorAll('.type-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var type = btn.getAttribute('data-type');
+      var s = pendingStudent;
+      hideTypeChooser();
+      if(s) openCertificate(s, type);
+    });
+  });
+  cancelTypeBtn.addEventListener('click', hideTypeChooser);
+  typeOverlay.addEventListener('click', function(e){ if(e.target === typeOverlay) hideTypeChooser(); });
   closeCertBtn.addEventListener('click', closeCertificate);
   printBtn.addEventListener('click', function(){ window.print(); });
   certOverlay.addEventListener('click', function(e){ if(e.target === certOverlay) closeCertificate(); });
